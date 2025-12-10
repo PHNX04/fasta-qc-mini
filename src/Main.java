@@ -1,23 +1,21 @@
 import analysis.StatsCalculator;
-import model.SequenceRecord;
 import model.StatsResult;
 import parser.FastaParser;
 import parser.FastqParser;
+import parser.SequenceParser;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length < 2 || !args[0].equals("--input")) {
-            System.out.println("Usage: --input <file> [--output <file>] [--threads N] [--kmers N]");
+            System.out.println("Usage: --input <file> [--output <file>] [--kmers N]");
             return;
         }
 
         String inputFile = null;
         String outputFile = null;
-        int threads = Runtime.getRuntime().availableProcessors();
         int maxKmers = 100_000;
 
         for (int i = 0; i < args.length; i++) {
@@ -38,15 +36,15 @@ public class Main {
                         return;
                     }
                     break;
-                case "--threads":
-                    if (i + 1 < args.length) {
-                        threads = Integer.parseInt(args[++i]);
-                    }
-                    break;
                 case "--kmers":
                     if (i + 1 < args.length) {
                         maxKmers = Integer.parseInt(args[++i]);
                     }
+                    break;
+                case "--threads":
+                    // Kept for backwards compatibility but ignored (streaming is single-pass)
+                    if (i + 1 < args.length)
+                        i++;
                     break;
                 default:
             }
@@ -57,28 +55,34 @@ public class Main {
             return;
         }
 
-        List<SequenceRecord> records;
+        StatsCalculator calc = new StatsCalculator(maxKmers);
+
+        // Use try-with-resources for automatic cleanup
+        try (SequenceParser parser = createParser(inputFile)) {
+            StatsResult result = calc.compute(parser);
+
+            if (result.sequenceCount == 0) {
+                System.out.println("No sequence found in file.");
+                return;
+            }
+
+            System.out.println(result);
+
+            if (outputFile != null) {
+                String json = result.toJson();
+                Files.writeString(Path.of(outputFile), json);
+                System.out.println("Wrote JSON to " + outputFile);
+            }
+        }
+    }
+
+    private static SequenceParser createParser(String inputFile) throws Exception {
         if (inputFile.endsWith(".fa") || inputFile.endsWith(".fasta") || inputFile.endsWith(".fna")) {
-            records = new FastaParser().parse(inputFile);
+            return new FastaParser(inputFile);
         } else if (inputFile.endsWith(".fq") || inputFile.endsWith(".fastq")) {
-            records = new FastqParser().parse(inputFile);
+            return new FastqParser(inputFile);
         } else {
-            throw new IllegalArgumentException("Unsupported file format");
-        }
-
-        if (records.isEmpty()) {
-            System.out.println("No sequence found in file.");
-            return;
-        }
-
-        StatsCalculator calc = new StatsCalculator(threads, maxKmers);
-        StatsResult result = calc.compute(records);
-        System.out.println(result);
-
-        if (outputFile != null) {
-            String json = result.toJson();
-            Files.writeString(Path.of(outputFile), json);
-            System.out.println("Wrote JSON to " + outputFile);
+            throw new IllegalArgumentException("Unsupported file format. Use .fa/.fasta/.fna or .fq/.fastq");
         }
     }
 }
