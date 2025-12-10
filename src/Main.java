@@ -11,12 +11,14 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length < 2 || !args[0].equals("--input")) {
-            System.out.println("Usage: --input <file> [--output <file>]");
+            System.out.println("Usage: --input <file> [--output <file>] [--threads N] [--kmers N]");
             return;
         }
 
         String inputFile = null;
         String outputFile = null;
+        int threads = Runtime.getRuntime().availableProcessors();
+        int maxKmers = 100_000;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -36,6 +38,16 @@ public class Main {
                         return;
                     }
                     break;
+                case "--threads":
+                    if (i + 1 < args.length) {
+                        threads = Integer.parseInt(args[++i]);
+                    }
+                    break;
+                case "--kmers":
+                    if (i + 1 < args.length) {
+                        maxKmers = Integer.parseInt(args[++i]);
+                    }
+                    break;
                 default:
             }
         }
@@ -46,7 +58,7 @@ public class Main {
         }
 
         List<SequenceRecord> records;
-        if (inputFile.endsWith(".fa") || inputFile.endsWith(".fasta")) {
+        if (inputFile.endsWith(".fa") || inputFile.endsWith(".fasta") || inputFile.endsWith(".fna")) {
             records = new FastaParser().parse(inputFile);
         } else if (inputFile.endsWith(".fq") || inputFile.endsWith(".fastq")) {
             records = new FastqParser().parse(inputFile);
@@ -59,7 +71,8 @@ public class Main {
             return;
         }
 
-        StatsResult result = new StatsCalculator().compute(records);
+        StatsCalculator calc = new StatsCalculator(threads, maxKmers);
+        StatsResult result = calc.compute(records);
         System.out.println(result);
 
         if (outputFile != null) {
