@@ -15,14 +15,15 @@ public class FastaParser implements SequenceParser {
     private SequenceRecord prefetched;
 
     public FastaParser(String filePath) throws IOException {
-        this.reader = new BufferedReader(new FileReader(filePath), 1 << 16); // 64KB buffer
+        this.reader = new BufferedReader(new FileReader(filePath), 1 << 18); // 256KB buffer
         this.nextSeq = new StringBuilder();
         this.finished = false;
         prefetch();
     }
 
     private void prefetch() {
-        if (finished) return;
+        if (finished)
+            return;
         try {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -57,7 +58,8 @@ public class FastaParser implements SequenceParser {
 
     @Override
     public SequenceRecord next() {
-        if (prefetched == null) throw new NoSuchElementException();
+        if (prefetched == null)
+            throw new NoSuchElementException();
         SequenceRecord result = prefetched;
         prefetched = null;
         prefetch();

@@ -13,13 +13,14 @@ public class FastqParser implements SequenceParser {
     private boolean finished;
 
     public FastqParser(String filePath) throws IOException {
-        this.reader = new BufferedReader(new FileReader(filePath), 1 << 16); // 64KB buffer
+        this.reader = new BufferedReader(new FileReader(filePath), 1 << 18); // 256KB buffer
         this.finished = false;
         prefetch();
     }
 
     private void prefetch() {
-        if (finished) return;
+        if (finished)
+            return;
         try {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -28,7 +29,7 @@ public class FastqParser implements SequenceParser {
                     String seq = reader.readLine();
                     reader.readLine(); // + line
                     reader.readLine(); // quality line
-                    
+
                     if (seq != null) {
                         prefetched = new SequenceRecord(id, seq.trim());
                         return;
@@ -49,7 +50,8 @@ public class FastqParser implements SequenceParser {
 
     @Override
     public SequenceRecord next() {
-        if (prefetched == null) throw new NoSuchElementException();
+        if (prefetched == null)
+            throw new NoSuchElementException();
         SequenceRecord result = prefetched;
         prefetched = null;
         prefetch();
